@@ -1,14 +1,37 @@
 import Ember from 'ember';
-import Messages from 'ember-model-validator/messages/en';
 import PostalCodesRegex from 'ember-model-validator/postal-codes-regex';
+
+import MessagesEn from '../messages/en';
+import MessagesFr from '../messages/fr';
+import MessagesEs from '../messages/es';
+import MessagesPtbr from '../messages/pt-br';
+
+const Messages = {
+  'en': MessagesEn,
+  'fr': MessagesFr,
+  'es': MessagesEs,
+  'pt-br': MessagesPtbr
+};
 
 export default Ember.Mixin.create({
   validationErrors: {},
   isValidNow: true,
   addErrors: true,
+  messages: {},
+
+  locale: Ember.computed(function(){
+    return Ember.getOwner(this).lookup('validator:locale');
+  }),
+
+  _initMessage: Ember.on('init', function() {
+    let locale = this.get('locale') || 'en';
+    this.set('messages', Messages[locale]);
+  }),
+
   clearErrors() {
     this._internalModel.clearErrorMessages();
   },
+
   validate(options={}) {
     let errors = null,
         validations = this.get('validations');
@@ -57,12 +80,12 @@ export default Ember.Mixin.create({
     }
   },
   
-  pushErrors(errors) {
+  pushErrors(errors){
     if(!this.get('isDeleted')){
-      var store = this.get('store');
-      var stateToTransition = this.get('isNew') ? 'created.uncommitted' : 'updated.uncommitted';
+      let store = this.get('store');
+      let stateToTransition = this.get('isNew') ? 'created.uncommitted' : 'updated.uncommitted';
       this.transitionTo(stateToTransition);
-      var recordModel = this.adapterDidInvalidate ? this : this._internalModel;
+      let recordModel = this.adapterDidInvalidate ? this : this._internalModel;
       store.recordWasInvalid(recordModel, errors);
     }
   },
@@ -76,7 +99,7 @@ export default Ember.Mixin.create({
         let passedCustomValidation = customValidator(property, this.get(property), this);
         if (!passedCustomValidation) {
           this.set('isValidNow', false);
-          this._addToErrors(property, validation[i], Messages.customValidationMessage);
+          this._addToErrors(property, validation[i], this.get('messages').customValidationMessage);
         }
       }
     }
@@ -91,13 +114,13 @@ export default Ember.Mixin.create({
     }
     if(Ember.isBlank(propertyValue)){
       this.set('isValidNow',false);
-      this._addToErrors(property, validation.presence, Messages.presenceMessage);
+      this._addToErrors(property, validation.presence, this.get('messages').presenceMessage);
     }
   },
   _validateAbsence(property, validation) {
     if (Ember.isPresent(this.get(property))){
       this.set('isValidNow',false);
-      this._addToErrors(property, validation.absence, Messages.absenceMessage);
+      this._addToErrors(property, validation.absence, this.get('messages').absenceMessage);
     }
   },
   _validateAcceptance(property, validation) {
@@ -105,20 +128,20 @@ export default Ember.Mixin.create({
         accept =  validation.acceptance.accept || [1,'1', true];
     if(!this._includes(Ember.A(accept),propertyValue)){
       this.set('isValidNow',false);
-      this._addToErrors(property, validation.acceptance, Messages.acceptanceMessage);
+      this._addToErrors(property, validation.acceptance, this.get('messages').acceptanceMessage);
     }
   },
   _validateFormat(property, validation) {
     let withRegexp = validation.format.with;
     if (!this.get(property) || String(this.get(property)).match(withRegexp) === null){
       this.set('isValidNow',false);
-      this._addToErrors(property, validation.format, Messages.formatMessage);
+      this._addToErrors(property, validation.format, this.get('messages').formatMessage);
     }
   },
   _validateEmail(property, validation) {
     if (!this.get(property) || String(this.get(property)).match(/^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/) === null){
       this.set('isValidNow',false);
-      this._addToErrors(property, validation.email, Messages.mailMessage);
+      this._addToErrors(property, validation.email, this.get('messages').mailMessage);
     }
   },
   _validateZipCode(property, validation) {
@@ -137,7 +160,7 @@ export default Ember.Mixin.create({
         }
         if (!propertyValue || String(propertyValue).match(postalCodeRegexp) === null){
           this.set('isValidNow',false);
-          this._addToErrors(property, validation.zipCode, Messages.zipCodeMessage);
+          this._addToErrors(property, validation.zipCode, this.get('messages').zipCodeMessage);
         }
       });
     }else{
@@ -147,7 +170,7 @@ export default Ember.Mixin.create({
       }
       if (!propertyValue || String(propertyValue).match(postalCodeRegexp) === null){
         this.set('isValidNow',false);
-        this._addToErrors(property, validation.zipCode, Messages.zipCodeMessage);
+        this._addToErrors(property, validation.zipCode, this.get('messages').zipCodeMessage);
       }
     }
   },
@@ -155,14 +178,14 @@ export default Ember.Mixin.create({
     let propertyValue = this.get(property);
     if (!propertyValue || String(propertyValue).match(/([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/i) === null){
       this.set('isValidNow',false);
-      this._addToErrors(property, validation.color, Messages.colorMessage);
+      this._addToErrors(property, validation.color, this.get('messages').colorMessage);
     }
   },
   _validateURL(property, validation) {
     let propertyValue = this.get(property);
     if (!propertyValue || String(propertyValue).match(/^((http|https):\/\/(\w+:{0,1}\w*@)?(\S+)|)(:[0-9]+)?(\/|\/([\w#!:.?+=&%@!\-\/]))?$/) === null){
       this.set('isValidNow',false);
-      this._addToErrors(property, validation.URL, Messages.URLMessage);
+      this._addToErrors(property, validation.URL, this.get('messages').URLMessage);
     }
   },
   _validateSubdomain(property, validation) {
@@ -170,14 +193,14 @@ export default Ember.Mixin.create({
         reserved = validation.subdomain.reserved || [];
     if (!propertyValue || String(propertyValue).match(/^[a-z\d]+([-_][a-z\d]+)*$/i) === null || reserved.indexOf(propertyValue) !== -1){
       this.set('isValidNow',false);
-      this._addToErrors(property, validation.subdomain, Messages.subdomainMessage);
+      this._addToErrors(property, validation.subdomain, this.get('messages').subdomainMessage);
     }
   },
   _validateDate(property, validation) {
     let propertyValue = new Date(this.get(property));
     if (isNaN(propertyValue.getTime())) {
       this.set('isValidNow', false);
-      this._addToErrors(property, validation.date, Messages.dateMessage);
+      this._addToErrors(property, validation.date, this.get('messages').dateMessage);
       return;
     }
     if (validation.date.hasOwnProperty('before') && validation.date.before) {
@@ -185,7 +208,7 @@ export default Ember.Mixin.create({
         this.set('isValidNow', false);
         let context = {date: new Date(validation.date.before)};
         validation.date.interpolatedValue = validation.date.before;
-        this._addToErrors(property, validation.date, this._formatMessage(Messages.dateBeforeMessage, context));
+        this._addToErrors(property, validation.date, this._formatMessage(this.get('messages').dateBeforeMessage, context));
       }
     }
     if (validation.date.hasOwnProperty('after') && validation.date.after) {
@@ -193,7 +216,7 @@ export default Ember.Mixin.create({
         this.set('isValidNow', false);
         let context = {date: new Date(validation.date.after)};
         validation.date.interpolatedValue = validation.date.after;
-        this._addToErrors(property, validation.date, this._formatMessage(Messages.dateAfterMessage, context));
+        this._addToErrors(property, validation.date, this._formatMessage(this.get('messages').dateAfterMessage, context));
       }
     }
   },
@@ -201,24 +224,24 @@ export default Ember.Mixin.create({
     let propertyValue = this.get(property);
     if(!this._isNumber(this.get(property))){
       this.set('isValidNow',false);
-      this._addToErrors(property, validation.numericality, Messages.numericalityMessage);
+      this._addToErrors(property, validation.numericality, this.get('messages').numericalityMessage);
     }
     if(validation.numericality.hasOwnProperty('onlyInteger') && validation.numericality.onlyInteger){
       if(!(/^[+\-]?\d+$/.test(propertyValue))){
         this.set('isValidNow',false);
-        this._addToErrors(property, validation.numericality, Messages.numericalityOnlyIntegerMessage);
+        this._addToErrors(property, validation.numericality, this.get('messages').numericalityOnlyIntegerMessage);
       }
     }
     if(validation.numericality.hasOwnProperty('even') && validation.numericality.even){
       if(propertyValue % 2 !== 0){
         this.set('isValidNow',false);
-        this._addToErrors(property, validation.numericality, Messages.numericalityEvenMessage);
+        this._addToErrors(property, validation.numericality, this.get('messages').numericalityEvenMessage);
       }
     }
     if(validation.numericality.hasOwnProperty('odd') && validation.numericality.odd){
       if(propertyValue % 2 === 0){
         this.set('isValidNow',false);
-        this._addToErrors(property, validation.numericality, Messages.numericalityOddMessage);
+        this._addToErrors(property, validation.numericality, this.get('messages').numericalityOddMessage);
       }
     }
     if(validation.numericality.hasOwnProperty('greaterThan') && this._isNumber(validation.numericality.greaterThan)){
@@ -226,7 +249,7 @@ export default Ember.Mixin.create({
         this.set('isValidNow',false);
         let context = {count: validation.numericality.greaterThan};
         validation.numericality.interpolatedValue = validation.numericality.greaterThan;
-        this._addToErrors(property, validation.numericality, this._formatMessage(Messages.numericalityGreaterThanMessage, context));
+        this._addToErrors(property, validation.numericality, this._formatMessage(this.get('messages').numericalityGreaterThanMessage, context));
       }
     }
     if(validation.numericality.hasOwnProperty('greaterThanOrEqualTo') && this._isNumber(validation.numericality.greaterThanOrEqualTo)){
@@ -234,7 +257,7 @@ export default Ember.Mixin.create({
         this.set('isValidNow',false);
         let context = {count: validation.numericality.greaterThanOrEqualTo};
         validation.numericality.interpolatedValue = validation.numericality.greaterThanOrEqualTo;
-        this._addToErrors(property, validation.numericality, this._formatMessage(Messages.numericalityGreaterThanOrEqualToMessage, context));
+        this._addToErrors(property, validation.numericality, this._formatMessage(this.get('messages').numericalityGreaterThanOrEqualToMessage, context));
       }
     }
     if(validation.numericality.hasOwnProperty('equalTo') && this._isNumber(validation.numericality.equalTo)){
@@ -242,7 +265,7 @@ export default Ember.Mixin.create({
         this.set('isValidNow',false);
         let context = {count: validation.numericality.equalTo};
         validation.numericality.interpolatedValue = validation.numericality.equalTo;
-        this._addToErrors(property, validation.numericality, this._formatMessage(Messages.numericalityEqualToMessage, context));
+        this._addToErrors(property, validation.numericality, this._formatMessage(this.get('messages').numericalityEqualToMessage, context));
       }
     }
     if(validation.numericality.hasOwnProperty('lessThan') && this._isNumber(validation.numericality.lessThan)){
@@ -250,7 +273,7 @@ export default Ember.Mixin.create({
         this.set('isValidNow',false);
         let context = {count: validation.numericality.lessThan};
         validation.numericality.interpolatedValue = validation.numericality.lessThan;
-        this._addToErrors(property, validation.numericality, this._formatMessage(Messages.numericalityLessThanMessage, context));
+        this._addToErrors(property, validation.numericality, this._formatMessage(this.get('messages').numericalityLessThanMessage, context));
       }
     }
     if(validation.numericality.hasOwnProperty('lessThanOrEqualTo') && this._isNumber(validation.numericality.lessThanOrEqualTo)){
@@ -258,7 +281,7 @@ export default Ember.Mixin.create({
         this.set('isValidNow',false);
         let context = {count: validation.numericality.lessThanOrEqualTo};
         validation.numericality.interpolatedValue = validation.numericality.lessThanOrEqualTo;
-        this._addToErrors(property, validation.numericality, this._formatMessage(Messages.numericalityLessThanOrEqualToMessage, context));
+        this._addToErrors(property, validation.numericality, this._formatMessage(this.get('messages').numericalityLessThanOrEqualToMessage, context));
       }
     }
   },
@@ -266,7 +289,7 @@ export default Ember.Mixin.create({
     if(validation.exclusion.hasOwnProperty('in')) {
       if(validation.exclusion.in.indexOf(this.get(property)) !== -1){
         this.set('isValidNow',false);
-        this._addToErrors(property, validation.exclusion, Messages.exclusionMessage);
+        this._addToErrors(property, validation.exclusion, this.get('messages').exclusionMessage);
       }
     }
   },
@@ -274,7 +297,7 @@ export default Ember.Mixin.create({
     if(validation.inclusion.hasOwnProperty('in')) {
       if(validation.inclusion.in.indexOf(this.get(property)) === -1){
         this.set('isValidNow',false);
-        this._addToErrors(property, validation.inclusion, Messages.inclusionMessage);
+        this._addToErrors(property, validation.inclusion, this.get('messages').inclusionMessage);
       }
     }
   },
@@ -289,7 +312,7 @@ export default Ember.Mixin.create({
       if(Ember.typeOf(validation.match) === 'object'){
         validation.match.interpolatedValue = matchingUnCamelCase;
       }
-      this._addToErrors(property, validation.match, this._formatMessage(Messages.matchMessage, context));
+      this._addToErrors(property, validation.match, this._formatMessage(this.get('messages').matchMessage, context));
     }
   },
   // Length Validator
@@ -316,7 +339,7 @@ export default Ember.Mixin.create({
       this.set('isValidNow',false);
       let context = {count: validation.length.is};
       validation.length.interpolatedValue = validation.length.is;
-      this._addToErrors(property, validation.length, this._formatMessage(Messages.wrongLengthMessage, context));
+      this._addToErrors(property, validation.length, this._formatMessage(this.get('messages').wrongLengthMessage, context));
     }
   },
   _rangeLength(stringLength, property, validation) {
@@ -340,14 +363,14 @@ export default Ember.Mixin.create({
       if(Ember.typeOf(validation.length.minimum) === 'object'){
         validation.length.minimum.interpolatedValue = minimum;
       }
-      this._addToErrors(property, validation.length.minimum, this._formatMessage(Messages.tooShortMessage, context));
+      this._addToErrors(property, validation.length.minimum, this._formatMessage(this.get('messages').tooShortMessage, context));
     }else if (stringLength > maximum) {
       this.set('isValidNow',false);
       let context = {count: maximum};
       if(Ember.typeOf(validation.length.maximum) === 'object'){
         validation.length.maximum.interpolatedValue = maximum;
       }
-      this._addToErrors(property, validation.length.maximum, this._formatMessage(Messages.tooLongMessage, context));
+      this._addToErrors(property, validation.length.maximum, this._formatMessage(this.get('messages').tooLongMessage, context));
     }
   },
   _validateRelations(property, validation) {
@@ -367,7 +390,7 @@ export default Ember.Mixin.create({
   },
   _validateMustContainCapital(property, validation) {
     let notContainCapital = String(this.get(property)).match(/(?=.*[A-Z])/) === null,
-        message = validation.mustContainCapital.message || Messages.mustContainCapitalMessage;
+        message = validation.mustContainCapital.message || this.get('messages').mustContainCapitalMessage;
     if (validation.mustContainCapital && notContainCapital) {
       this.set('isValidNow', false);
       this._addToErrors(property, validation, message);
@@ -375,7 +398,7 @@ export default Ember.Mixin.create({
   },
   _validateMustContainLower(property, validation) {
     let containsLower = String(this.get(property)).match(/(?=.*[a-z])/) !== null,
-        message = validation.mustContainLower.message || Messages.mustContainLowerMessage;
+        message = validation.mustContainLower.message || this.get('messages').mustContainLowerMessage;
     if (validation.mustContainLower && !containsLower) {
       this.set('isValidNow', false);
       this._addToErrors(property, validation, message);
@@ -383,7 +406,7 @@ export default Ember.Mixin.create({
   },
   _validateMustContainNumber(property, validation) {
     let containsNumber = String(this.get(property)).match(/(?=.*[0-9])/) !== null,
-        message = validation.mustContainNumber.message || Messages.mustContainNumberMessage;
+        message = validation.mustContainNumber.message || this.get('messages').mustContainNumberMessage;
     if (validation.mustContainNumber && !containsNumber) {
       this.set('isValidNow', false);
       this._addToErrors(property, validation, message);
@@ -393,7 +416,7 @@ export default Ember.Mixin.create({
     let regexString = validation.mustContainSpecial.acceptableChars || '-+_!@#$%^&*.,?()',
         regex = new RegExp(`(?=.*[${regexString}])`),
         containsSpecial = String(this.get(property)).match(regex) !== null,
-        message = validation.mustContainSpecial.message || Messages.mustContainSpecialMessage;
+        message = validation.mustContainSpecial.message || this.get('messages').mustContainSpecialMessage;
     if (validation.mustContainSpecial && !containsSpecial) {
       this.set('isValidNow', false);
       let context = {characters: regexString};
